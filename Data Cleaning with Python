@@ -1,0 +1,50 @@
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv("bank_marketing.csv")
+#print columns to confirm that columns specified in problem statement exist in the df
+#print(df.columns)
+  
+#dataframe for client
+client = df[['client_id', 'age', 'job', 'marital', 'education', 'credit_default', 'mortgage']]
+#print(client.head())
+  
+#dataframe for campaign
+campaign = df[['client_id', 'number_contacts', 'contact_duration', 'previous_campaign_contacts', 'previous_outcome', 'campaign_outcome']]
+df['year'] = 2022
+# Convert 'year', 'month', and 'day' to strings before concatenation
+df['year'] = df['year'].astype(str)
+df['month'] = df['month'].astype(str)
+df['day'] = df['day'].astype(str)
+campaign['last_contact_date'] = df['year'] + "-" + df['month'] + "-" + df['day']
+#drop columns we no longer need
+df.drop(columns=['year','month','day'],inplace=True)
+#print(campaign.columns)
+  
+#dataframe for economics
+economics = df[['client_id','cons_price_idx','euribor_three_months']]
+
+#replace values in the client dataframe. use lamba or direct dictionary mapping
+client['job'] = client['job'].str.replace(".", "_")
+cl_check2 = client[client['job'].str.contains(".")]
+client['education'] = client['education'].str.replace(".", "_")
+client['education'] = client['education'].replace("unknown", np.NaN)
+client['credit_default']=client['credit_default'].map({"yes":1,"no":0,"unknown":0})
+client['mortgage']=client['mortgage'].map(lambda x: 1 if x == 'yes' else 0)
+
+#clean values in the campaign dataframe
+campaign['campaign_outcome'] = campaign['campaign_outcome'].map({"yes":1,"no":0})
+campaign['previous_outcome'] = campaign['previous_outcome'].map({"success":1,"failure":0,"nonexistent":0})
+#print(campaign['campaign_outcome'])
+#print(campaign['previous_outcome'].unique())
+
+#converting datatypes
+campaign['campaign_outcome'] = campaign['campaign_outcome'].astype('bool')
+campaign['previous_outcome'] = campaign['previous_outcome'].astype('bool')
+client['credit_default']=client['credit_default'].astype('bool')
+client['mortgage']=client['mortgage'].astype('bool')
+
+#save the dataframes as csv files
+client.to_csv("client.csv",index=False)
+campaign.to_csv("campaign.csv",index=False)
+economics.to_csv("economics.csv",index=False)
