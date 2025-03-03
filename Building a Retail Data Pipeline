@@ -1,0 +1,76 @@
+import pandas as pd
+import os
+
+# Extract function  
+def extract(store_data, extra_data):
+    extra_df = pd.read_parquet(extra_data)
+    merged_df = store_data.merge(extra_df, on = "index")
+    return merged_df
+
+# Call the extract() function and store it as the "merged_df" variable
+merged_df = extract(grocery_sales, "extra_data.parquet")
+# Create the transform() function with one parameter: "raw_data"
+def transform(raw_data):
+    # Convert 'date' column to datetime format
+    raw_data['Date'] = pd.to_datetime(raw_data['Date'])
+
+    # Fill missing values
+    raw_data.fillna(
+        {
+            'Weekly_Sales': raw_data['Weekly_Sales'].mean(),
+            'Unemployment': raw_data['Unemployment'].mode()[0],
+            'CPI': raw_data['CPI'].mode()[0],
+            'Dept': raw_data['Dept'].mode()[0],
+            'IsHoliday': 0
+        }, inplace=True
+    )
+
+    # Forward fill missing dates
+    raw_data['Date'].fillna(method='ffill', inplace=True)
+
+    # Create a new column 'Month' from 'date'
+    raw_data['Month'] = raw_data['Date'].dt.month
+
+    # Filter rows where 'Weekly_Sales' is greater than 10,000
+    raw_data = raw_data.loc[raw_data['Weekly_Sales'] > 10000, ['Store_ID',
+                'Month',
+                'Dept',
+                'IsHoliday',
+                'Weekly_Sales',
+                'CPI',
+                'Unemployment']]
+
+    # Drop the index column (reset index and drop the old one)
+    raw_data.reset_index(drop=True, inplace=True)
+
+    return raw_data  # Ensure function returns the transformed data
+# Call the transform() function and pass the merged DataFrame
+clean_data = transform(merged_df)
+# Create the avg_weekly_sales_per_month function that takes in the cleaned data from the last step
+def avg_weekly_sales_per_month(clean_data):
+    clean_data = clean_data[['Month','Weekly_Sales']]
+    clean_data = clean_data.groupby('Month')['Weekly_Sales'].mean().reset_index().round(2)
+    clean_data.rename(columns={'Weekly_Sales': 'Avg_Sales'}, inplace=True)
+    return clean_data
+    
+# Call the avg_weekly_sales_per_month() function and pass the cleaned DataFrame
+agg_data = avg_weekly_sales_per_month(clean_data)
+# Create the load() function that takes in the cleaned DataFrame and the aggregated one with the paths where they are going to be stored
+def load(full_data, full_data_file_path, agg_data, agg_data_file_path):
+    # Save full_data to CSV without the index
+    full_data.to_csv(full_data_file_path, index=False)
+
+    # Save agg_data to CSV without the index
+    agg_data.to_csv(agg_data_file_path, index=False)
+   
+# Call the load() function and pass the cleaned and aggregated DataFrames with their paths   
+load(clean_data,"clean_data.csv",agg_data,"agg_data.csv")
+# Create the validation() function with one parameter: file_path - to check whether the previous function was correctly executed
+def validation(file_path):
+    # Write your code here
+    import os 
+    if not os.path.exists(file_path):
+        raise Exception(f"Error: The directory for {file_path} does not exist.")
+    
+# Call the validation() function and pass first, the cleaned DataFrame path, and then the aggregated DataFrame path
+validation("clean_data.csv")
